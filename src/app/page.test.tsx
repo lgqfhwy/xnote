@@ -1,3 +1,18 @@
+// Mock the Editor component
+jest.mock('../components/Editor', () => ({
+  Editor: ({
+    className,
+    initialContent,
+  }: {
+    className?: string
+    initialContent?: string
+  }) => (
+    <div className={`mock-editor ${className || ''}`} data-testid="editor">
+      <div dangerouslySetInnerHTML={{ __html: initialContent || '' }} />
+    </div>
+  ),
+}))
+
 import { render, screen, fireEvent } from '@testing-library/react'
 import Home from './page'
 
@@ -50,5 +65,14 @@ describe('Home Page Layout', () => {
 
     expect(screen.getByText('Welcome to XNote')).toBeInTheDocument()
     expect(screen.getByText(/The ultimate Markdown editor/)).toBeInTheDocument()
+  })
+
+  test('renders the Editor component', () => {
+    render(<Home />)
+
+    expect(screen.getByTestId('editor')).toBeInTheDocument()
+    expect(
+      screen.getByText('Start writing your Markdown here...')
+    ).toBeInTheDocument()
   })
 })
