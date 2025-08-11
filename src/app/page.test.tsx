@@ -1,18 +1,31 @@
 import { render, screen } from '@testing-library/react'
 import Home from './page'
 
+// Mock UserInfo component
+jest.mock('../components/UserInfo', () => ({
+  UserInfo: () => <div data-testid="user-info">User Info</div>,
+}))
+
 describe('Home', () => {
-  it('renders the "Get started by editing" text', () => {
+  it('renders the welcome title and description', () => {
     render(<Home />)
 
-    const getStartedText = screen.getByText(/Get started by editing/i)
-    expect(getStartedText).toBeInTheDocument()
+    expect(screen.getByText('Welcome to XNote')).toBeInTheDocument()
+    expect(
+      screen.getByText(/The ultimate Markdown editor/i)
+    ).toBeInTheDocument()
   })
 
-  it('displays the correct file path in code block', () => {
+  it('displays authentication status messages', () => {
     render(<Home />)
 
-    const codeElement = screen.getByText('src/app/page.tsx')
-    expect(codeElement).toBeInTheDocument()
+    expect(screen.getByText(/successfully authenticated/i)).toBeInTheDocument()
+    expect(screen.getByText(/protected by middleware/i)).toBeInTheDocument()
+  })
+
+  it('renders the UserInfo component', () => {
+    render(<Home />)
+
+    expect(screen.getByTestId('user-info')).toBeInTheDocument()
   })
 })
