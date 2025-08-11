@@ -1,6 +1,9 @@
 import Image from 'next/image'
 import { UserInfo } from '@/components/UserInfo'
 
+// Disable static generation for this page since it uses authentication
+export const dynamic = 'force-dynamic'
+
 export default function Home() {
   return (
     <div className="grid min-h-screen grid-rows-[20px_1fr_20px] items-center justify-items-center gap-16 p-8 pb-20 font-sans sm:p-20">

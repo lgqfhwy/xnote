@@ -4,6 +4,9 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 
+// Disable static generation for this page since it uses client-side authentication
+export const dynamic = 'force-dynamic'
+
 export default function LoginPage() {
   const supabase = createClientComponentClient()
 
@@ -21,12 +24,23 @@ export default function LoginPage() {
         <div className="mt-8 space-y-6">
           <Auth
             supabaseClient={supabase}
-            view="magic_link"
-            appearance={{ theme: ThemeSupa }}
+            view="sign_in"
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#3b82f6',
+                    brandAccent: '#1d4ed8',
+                  },
+                },
+              },
+            }}
             theme="light"
-            showLinks={false}
+            showLinks={true}
             providers={['github', 'google']}
-            redirectTo={`${window.location.origin}/auth/callback`}
+            redirectTo="/auth/callback"
+            socialLayout="horizontal"
           />
         </div>
       </div>
