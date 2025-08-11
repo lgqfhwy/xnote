@@ -7,8 +7,19 @@ jest.mock('@supabase/auth-helpers-nextjs', () => ({
     auth: {
       signInWithOAuth: jest.fn(),
       signInWithPassword: jest.fn(),
+      onAuthStateChange: jest.fn(() => ({
+        data: { subscription: { unsubscribe: jest.fn() } },
+      })),
+      getSession: jest.fn(() => Promise.resolve({ data: { session: null } })),
     },
   })),
+}))
+
+// Mock Next.js router
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
 }))
 
 // Mock Auth UI components
