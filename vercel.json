@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "app/auth/callback/route.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://lsayztyjqurdszzrjhtt.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzYXl6dHlqcXVyZHN6enJqaHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MjYyNTYsImV4cCI6MjA3MDUwMjI1Nn0.I-5a2thNfV8Hxk2eNpNXrZ_i4HxF-16dnZGDP195bdQ"
