@@ -30,7 +30,9 @@ jest.mock('@supabase/auth-ui-react', () => ({
 const mockLocation = {
   origin: 'http://localhost:3000',
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (window as any).location
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 window.location = mockLocation as any
 
 describe('LoginPage', () => {
