@@ -21,12 +21,27 @@ export default function LoginPage() {
         <div className="mt-8 space-y-6">
           <Auth
             supabaseClient={supabase}
-            view="magic_link"
-            appearance={{ theme: ThemeSupa }}
+            view="sign_in"
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#3b82f6',
+                    brandAccent: '#1d4ed8',
+                  },
+                },
+              },
+            }}
             theme="light"
-            showLinks={false}
+            showLinks={true}
             providers={['github', 'google']}
-            redirectTo={`${window.location.origin}/auth/callback`}
+            redirectTo={
+              typeof window !== 'undefined'
+                ? `${window.location.origin}/auth/callback`
+                : '/auth/callback'
+            }
+            socialLayout="horizontal"
           />
         </div>
       </div>
