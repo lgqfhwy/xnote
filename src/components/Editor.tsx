@@ -7,9 +7,6 @@ import { Schema, DOMParser } from 'prosemirror-model'
 import { schema } from 'prosemirror-schema-basic'
 import { addListNodes } from 'prosemirror-schema-list'
 import { exampleSetup } from 'prosemirror-example-setup'
-import { history } from 'prosemirror-history'
-import { baseKeymap } from 'prosemirror-commands'
-import { keymap } from 'prosemirror-keymap'
 
 // Create schema with list support
 const mySchema = new Schema({
@@ -48,12 +45,11 @@ export function Editor({
     const state = EditorState.create({
       doc,
       plugins: [
-        history(),
-        keymap(baseKeymap),
         ...exampleSetup({
           schema: mySchema,
           menuBar: false,
           floatingMenu: false,
+          history: true, // This enables history in exampleSetup
         }),
       ],
     })
