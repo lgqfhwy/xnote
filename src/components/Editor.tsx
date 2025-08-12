@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Schema, DOMParser } from 'prosemirror-model'
@@ -250,14 +250,9 @@ export function Editor({
 }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
-  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isClient || !editorRef.current) return
+    if (!editorRef.current) return
 
     // Create schema on client side
     const mySchema = createEditorSchema()
@@ -311,17 +306,7 @@ export function Editor({
         viewRef.current = null
       }
     }
-  }, [isClient, initialContent, onChange])
-
-  if (!isClient) {
-    return (
-      <div className={`prose max-w-none ${className}`}>
-        <div className="ProseMirror-editor min-h-[200px] rounded-md border border-gray-200 p-4">
-          <div className="text-gray-500">Loading editor...</div>
-        </div>
-      </div>
-    )
-  }
+  }, [initialContent, onChange])
 
   return (
     <div className={`prose max-w-none ${className}`}>
