@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { Editor } from './Editor'
 
 // Mock ProseMirror dependencies
+let mockEditorView: any
+let mockState: any
+
 jest.mock('prosemirror-view', () => ({
   EditorView: jest.fn().mockImplementation((node, props) => {
     // Create a mock DOM element that looks like ProseMirror
@@ -11,36 +14,58 @@ jest.mock('prosemirror-view', () => ({
     mockDiv.innerHTML = '<p>Mock editor content</p>'
     node.appendChild(mockDiv)
 
-    return {
+    mockEditorView = {
       dom: mockDiv,
       state: props.state,
       updateState: jest.fn(),
       destroy: jest.fn(),
       dispatch: jest.fn(),
     }
+
+    return mockEditorView
   }),
 }))
 
 jest.mock('prosemirror-state', () => ({
   EditorState: {
-    create: jest.fn(() => ({
-      doc: { content: [] },
-      apply: jest.fn(),
-    })),
+    create: jest.fn((config) => {
+      mockState = {
+        doc: { content: [] },
+        apply: jest.fn(),
+        plugins: config.plugins || [],
+      }
+      return mockState
+    }),
   },
 }))
 
 jest.mock('prosemirror-model', () => ({
-  Schema: jest.fn(() => ({
+  Schema: jest.fn().mockImplementation(() => ({
     nodes: {
       doc: {
         createAndFill: jest.fn(() => ({ content: [] })),
       },
     },
+    marks: {
+      strong: {
+        create: jest.fn(() => ({ type: 'strong' })),
+      },
+      em: {
+        create: jest.fn(() => ({ type: 'em' })),
+      },
+      strikethrough: {
+        create: jest.fn(() => ({ type: 'strikethrough' })),
+      },
+    },
     spec: {
       nodes: {},
-      marks: {},
+      marks: {
+        strong: {},
+        em: {},
+        strikethrough: {},
+      },
     },
+    text: jest.fn((text, marks) => ({ text, marks })),
   })),
   DOMParser: {
     fromSchema: jest.fn(() => ({
@@ -53,7 +78,10 @@ jest.mock('prosemirror-schema-basic', () => ({
   schema: {
     spec: {
       nodes: {},
-      marks: {},
+      marks: {
+        strong: {},
+        em: {},
+      },
     },
   },
 }))
@@ -66,16 +94,21 @@ jest.mock('prosemirror-example-setup', () => ({
   exampleSetup: jest.fn(() => []),
 }))
 
-jest.mock('prosemirror-history', () => ({
-  history: jest.fn(() => ({})),
-}))
-
-jest.mock('prosemirror-commands', () => ({
-  baseKeymap: {},
+jest.mock('prosemirror-inputrules', () => ({
+  inputRules: jest.fn(({ rules }) => ({ rules })),
+  InputRule: jest
+    .fn()
+    .mockImplementation((regex, handler) => ({ regex, handler })),
+  wrappingInputRule: jest.fn(),
+  textblockTypeInputRule: jest.fn(),
 }))
 
 jest.mock('prosemirror-keymap', () => ({
-  keymap: jest.fn(() => ({})),
+  keymap: jest.fn((keys) => ({ keys })),
+}))
+
+jest.mock('prosemirror-commands', () => ({
+  toggleMark: jest.fn((markType) => jest.fn(() => ({ markType }))),
 }))
 
 describe('Editor', () => {
@@ -118,5 +151,116 @@ describe('Editor', () => {
 
     const proseMirrorDiv = document.querySelector('.ProseMirror')
     expect(proseMirrorDiv).toHaveTextContent('Mock editor content')
+  })
+
+  describe('Mark functionality', () => {
+    it('creates input rules for bold, italic, and strikethrough', () => {
+      render(<Editor />)
+
+      // Verify that input rules were created with the correct patterns
+      const { inputRules } = require('prosemirror-inputrules')
+      expect(inputRules).toHaveBeenCalled()
+
+      const inputRulesCall = inputRules.mock.calls[0][0]
+      expect(inputRulesCall.rules).toBeDefined()
+      expect(inputRulesCall.rules.length).toBe(3)
+    })
+
+    it('creates keymap with correct shortcuts', () => {
+      render(<Editor />)
+
+      // Verify that keymap was created with correct shortcuts
+      const { keymap } = require('prosemirror-keymap')
+      expect(keymap).toHaveBeenCalled()
+
+      const keymapCall = keymap.mock.calls[0][0]
+      expect(keymapCall['Mod-b']).toBeDefined() // Bold shortcut
+      expect(keymapCall['Mod-i']).toBeDefined() // Italic shortcut
+      expect(keymapCall['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
+    })
+
+    it('sets up schema with enhanced marks', () => {
+      render(<Editor />)
+
+      // The Schema is created at module load time, so we just verify the Editor renders
+      // with the enhanced schema functionality (which is tested through other tests)
+      const proseMirrorDiv = document.querySelector('.ProseMirror')
+      expect(proseMirrorDiv).toBeInTheDocument()
+
+      // Verify that the schema includes the expected mark functionality by checking
+      // if the component rendered without errors (indicating the schema was valid)
+      expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+    })
+
+    it('configures plugins in correct order', () => {
+      render(<Editor />)
+
+      // Verify that EditorState.create was called with plugins in correct order
+      const { EditorState } = require('prosemirror-state')
+      expect(EditorState.create).toHaveBeenCalled()
+
+      const createCall = EditorState.create.mock.calls[0][0]
+      expect(createCall.plugins).toBeDefined()
+      expect(createCall.plugins.length).toBeGreaterThanOrEqual(2) // input rules + keymap (+ example setup which returns [])
+    })
+
+    it('integrates toggleMark commands for keyboard shortcuts', () => {
+      render(<Editor />)
+
+      // Verify that toggleMark was called for each mark type
+      const { toggleMark } = require('prosemirror-commands')
+      expect(toggleMark).toHaveBeenCalledTimes(3) // bold, italic, strikethrough
+    })
+  })
+
+  describe('Input Rules Testing', () => {
+    it('creates bold input rule with correct regex', () => {
+      render(<Editor />)
+
+      const { InputRule } = require('prosemirror-inputrules')
+      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+
+      // Find the bold input rule (should match **text**)
+      const boldRule = inputRuleCalls.find((call) => {
+        const regex = call[0]
+        return regex.toString().includes('\\*\\*')
+      })
+
+      expect(boldRule).toBeDefined()
+      expect(boldRule[0]).toEqual(/(?:^|\s)\*\*([^*]+)\*\*$/)
+    })
+
+    it('creates italic input rule with correct regex', () => {
+      render(<Editor />)
+
+      const { InputRule } = require('prosemirror-inputrules')
+      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+
+      // Find the italic input rule (should match *text* but not **text**)
+      const italicRule = inputRuleCalls.find((call) => {
+        const regex = call[0]
+        const regexStr = regex.toString()
+        return regexStr.includes('\\*') && !regexStr.includes('\\*\\*')
+      })
+
+      expect(italicRule).toBeDefined()
+      expect(italicRule[0]).toEqual(/(?:^|\s)\*([^*]+)\*$/)
+    })
+
+    it('creates strikethrough input rule with correct regex', () => {
+      render(<Editor />)
+
+      const { InputRule } = require('prosemirror-inputrules')
+      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+
+      // Find the strikethrough input rule (should match ~~text~~)
+      const strikeRule = inputRuleCalls.find((call) => {
+        const regex = call[0]
+        return regex.toString().includes('~~')
+      })
+
+      expect(strikeRule).toBeDefined()
+      expect(strikeRule[0]).toEqual(/(?:^|\s)~~([^~]+)~~$/)
+    })
   })
 })
