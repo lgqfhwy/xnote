@@ -6,7 +6,8 @@ import { EditorView } from 'prosemirror-view'
 import { Schema, DOMParser } from 'prosemirror-model'
 import { schema } from 'prosemirror-schema-basic'
 import { addListNodes } from 'prosemirror-schema-list'
-import { exampleSetup } from 'prosemirror-example-setup'
+import { history } from 'prosemirror-history'
+import { baseKeymap } from 'prosemirror-commands'
 import {
   inputRules,
   InputRule,
@@ -271,14 +272,10 @@ export function Editor({
     const state = EditorState.create({
       doc,
       plugins: [
+        history(),
+        keymap(baseKeymap),
         createInputRules(mySchema),
         createKeymap(mySchema),
-        ...exampleSetup({
-          schema: mySchema,
-          menuBar: false,
-          floatingMenu: false,
-          history: true, // This enables history in exampleSetup
-        }),
       ],
     })
 

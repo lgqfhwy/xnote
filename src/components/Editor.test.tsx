@@ -139,8 +139,18 @@ jest.mock('prosemirror-schema-list', () => ({
   addListNodes: jest.fn((nodes) => nodes),
 }))
 
-jest.mock('prosemirror-example-setup', () => ({
-  exampleSetup: jest.fn(() => []),
+jest.mock('prosemirror-history', () => ({
+  history: jest.fn(() => ({ type: 'history' })),
+}))
+
+jest.mock('prosemirror-commands', () => ({
+  toggleMark: jest.fn((markType) => jest.fn(() => ({ markType }))),
+  baseKeymap: {
+    'Mod-z': jest.fn(),
+    'Mod-y': jest.fn(),
+    Enter: jest.fn(),
+    Backspace: jest.fn(),
+  },
 }))
 
 jest.mock('prosemirror-inputrules', () => ({
@@ -163,10 +173,6 @@ jest.mock('prosemirror-inputrules', () => ({
 
 jest.mock('prosemirror-keymap', () => ({
   keymap: jest.fn((keys) => ({ keys })),
-}))
-
-jest.mock('prosemirror-commands', () => ({
-  toggleMark: jest.fn((markType) => jest.fn(() => ({ markType }))),
 }))
 
 describe('Editor', () => {
@@ -229,10 +235,17 @@ describe('Editor', () => {
       // Verify that keymap was created with correct shortcuts
       expect(keymap).toHaveBeenCalled()
 
-      const keymapCall = (keymap as jest.Mock).mock.calls[0][0]
-      expect(keymapCall['Mod-b']).toBeDefined() // Bold shortcut
-      expect(keymapCall['Mod-i']).toBeDefined() // Italic shortcut
-      expect(keymapCall['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
+      // Find the custom keymap call (should be the second call, first is baseKeymap)
+      const keymapCalls = (keymap as jest.Mock).mock.calls
+      const customKeymapCall = keymapCalls.find(
+        (call) => call[0]['Mod-b'] && call[0]['Mod-i'] && call[0]['Mod-Shift-s']
+      )
+      expect(customKeymapCall).toBeDefined()
+
+      const customKeymap = customKeymapCall[0]
+      expect(customKeymap['Mod-b']).toBeDefined() // Bold shortcut
+      expect(customKeymap['Mod-i']).toBeDefined() // Italic shortcut
+      expect(customKeymap['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
     })
 
     it('sets up schema with enhanced marks', () => {
