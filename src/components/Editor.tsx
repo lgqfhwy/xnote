@@ -34,24 +34,42 @@ export function Editor({
       return
     }
 
-    // Provide a minimal polyfill for Element.append if missing to avoid runtime crashes
+    // Provide a minimal polyfill for append on multiple DOM prototypes if missing
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const proto: any = Element.prototype as any
-      if (typeof proto.append !== 'function') {
-        // eslint-disable-next-line no-extend-native
-        proto.append = function (this: unknown, ...nodes: unknown[]) {
-          const self = this as unknown as HTMLElement
-          nodes.forEach((node) => {
-            const isNode = node instanceof Node
-            self.appendChild(
-              isNode ? (node as Node) : document.createTextNode(String(node))
-            )
-          })
-        }
+      const appendShim = function (this: Node, ...nodes: unknown[]) {
+        const doc =
+          (this as Node & { ownerDocument?: Document }).ownerDocument ||
+          document
+        nodes.forEach((node) => {
+          const isNode = node instanceof Node
+          ;(this as Node).appendChild(
+            isNode ? (node as Node) : doc.createTextNode(String(node))
+          )
+        })
       }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const targets: any[] = []
+      if (typeof Element !== 'undefined') targets.push(Element.prototype)
+      if (typeof Document !== 'undefined') targets.push(Document.prototype)
+      if (typeof DocumentFragment !== 'undefined')
+        targets.push(DocumentFragment.prototype)
+      // ShadowRoot extends DocumentFragment; cover it just in case
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ShadowRootCtor: any =
+        (typeof window !== 'undefined' && (window as any).ShadowRoot) ||
+        undefined
+      if (ShadowRootCtor && ShadowRootCtor.prototype)
+        targets.push(ShadowRootCtor.prototype)
+
+      targets.forEach((proto) => {
+        if (proto && typeof proto.append !== 'function') {
+          // eslint-disable-next-line no-extend-native
+          proto.append = appendShim
+        }
+      })
     } catch (_e) {
-      // ignore if prototype is sealed or in non-standard env
+      // ignore if prototypes are sealed or in non-standard env
     }
 
     // Test DOM element functionality (appendChild/removeChild are required)
@@ -344,11 +362,15 @@ export function Editor({
 
         // Choose a mounting strategy:
         // - In tests, keep direct element mounting to satisfy mocks
-        // - In runtime, pass an object with a `mount` property to avoid any reliance on Element.append
+        // - In runtime, use a function that mounts using appendChild (avoids Element.append entirely)
         const place =
           typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
             ? (editorRef.current as unknown as Element)
-            : ({ mount: editorRef.current! } as unknown as Element)
+            : (node: HTMLElement) => {
+                const mount = editorRef.current!
+                while (mount.firstChild) mount.removeChild(mount.firstChild)
+                mount.appendChild(node)
+              }
 
         const view = new EditorView(place as unknown as Element, {
           state,
