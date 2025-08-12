@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Schema, DOMParser } from 'prosemirror-model'
@@ -16,123 +16,126 @@ import {
 import { keymap } from 'prosemirror-keymap'
 import { toggleMark } from 'prosemirror-commands'
 
-// Create basic marks object
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const basicMarks: any = {
-  // Override strong mark with better DOM specification
-  strong: {
-    parseDOM: [
-      { tag: 'strong' },
-      {
-        tag: 'b',
-        getAttrs: (node: HTMLElement) =>
-          node.style.fontWeight !== 'normal' && null,
-      },
-      {
-        style: 'font-weight',
-        getAttrs: (value: string) =>
-          /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
-      },
-    ],
-    toDOM() {
-      return ['strong', 0]
-    },
-  },
-  // Override em mark
-  em: {
-    parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
-    toDOM() {
-      return ['em', 0]
-    },
-  },
-  // Add strikethrough mark
-  strikethrough: {
-    parseDOM: [
-      { tag: 's' },
-      { tag: 'del' },
-      { style: 'text-decoration=line-through' },
-    ],
-    toDOM() {
-      return ['s', 0]
-    },
-  },
-}
-
-// Add existing marks if available
-if (schema.spec.marks.get && schema.spec.marks.get('link')) {
-  basicMarks.link = schema.spec.marks.get('link')
-}
-if (schema.spec.marks.get && schema.spec.marks.get('code')) {
-  basicMarks.code = schema.spec.marks.get('code')
-}
-
-// Create enhanced nodes object
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const basicNodes: any = {}
-
-// Add base nodes from the schema
-if (schema.spec.nodes.get) {
-  // Runtime environment - use get method
-  basicNodes.doc = schema.spec.nodes.get('doc')
-  basicNodes.paragraph = schema.spec.nodes.get('paragraph')
-  basicNodes.text = schema.spec.nodes.get('text')
-} else {
-  // Test environment - direct access
+// Function to create schema lazily on client side
+function createEditorSchema() {
+  // Create basic marks object
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nodes = schema.spec.nodes as any
-  basicNodes.doc = nodes.doc
-  basicNodes.paragraph = nodes.paragraph
-  basicNodes.text = nodes.text
-}
+  const basicMarks: any = {
+    // Override strong mark with better DOM specification
+    strong: {
+      parseDOM: [
+        { tag: 'strong' },
+        {
+          tag: 'b',
+          getAttrs: (node: HTMLElement) =>
+            node.style.fontWeight !== 'normal' && null,
+        },
+        {
+          style: 'font-weight',
+          getAttrs: (value: string) =>
+            /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
+        },
+      ],
+      toDOM() {
+        return ['strong', 0]
+      },
+    },
+    // Override em mark
+    em: {
+      parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
+      toDOM() {
+        return ['em', 0]
+      },
+    },
+    // Add strikethrough mark
+    strikethrough: {
+      parseDOM: [
+        { tag: 's' },
+        { tag: 'del' },
+        { style: 'text-decoration=line-through' },
+      ],
+      toDOM() {
+        return ['s', 0]
+      },
+    },
+  }
 
-// Add enhanced nodes
-basicNodes.heading = {
-  attrs: { level: { default: 1 } },
-  content: 'inline*',
-  group: 'block',
-  defining: true,
-  parseDOM: [
-    { tag: 'h1', attrs: { level: 1 } },
-    { tag: 'h2', attrs: { level: 2 } },
-    { tag: 'h3', attrs: { level: 3 } },
-    { tag: 'h4', attrs: { level: 4 } },
-    { tag: 'h5', attrs: { level: 5 } },
-    { tag: 'h6', attrs: { level: 6 } },
-  ],
+  // Add existing marks if available
+  if (schema.spec.marks.get && schema.spec.marks.get('link')) {
+    basicMarks.link = schema.spec.marks.get('link')
+  }
+  if (schema.spec.marks.get && schema.spec.marks.get('code')) {
+    basicMarks.code = schema.spec.marks.get('code')
+  }
+
+  // Create enhanced nodes object
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toDOM(node: any) {
-    return ['h' + node.attrs.level, 0]
-  },
+  const basicNodes: any = {}
+
+  // Add base nodes from the schema
+  if (schema.spec.nodes.get) {
+    // Runtime environment - use get method
+    basicNodes.doc = schema.spec.nodes.get('doc')
+    basicNodes.paragraph = schema.spec.nodes.get('paragraph')
+    basicNodes.text = schema.spec.nodes.get('text')
+  } else {
+    // Test environment - direct access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nodes = schema.spec.nodes as any
+    basicNodes.doc = nodes.doc
+    basicNodes.paragraph = nodes.paragraph
+    basicNodes.text = nodes.text
+  }
+
+  // Add enhanced nodes
+  basicNodes.heading = {
+    attrs: { level: { default: 1 } },
+    content: 'inline*',
+    group: 'block',
+    defining: true,
+    parseDOM: [
+      { tag: 'h1', attrs: { level: 1 } },
+      { tag: 'h2', attrs: { level: 2 } },
+      { tag: 'h3', attrs: { level: 3 } },
+      { tag: 'h4', attrs: { level: 4 } },
+      { tag: 'h5', attrs: { level: 5 } },
+      { tag: 'h6', attrs: { level: 6 } },
+    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    toDOM(node: any) {
+      return ['h' + node.attrs.level, 0]
+    },
+  }
+
+  basicNodes.blockquote = {
+    content: 'block+',
+    group: 'block',
+    defining: true,
+    parseDOM: [{ tag: 'blockquote' }],
+    toDOM() {
+      return ['blockquote', 0]
+    },
+  }
+
+  basicNodes.hard_break = {
+    inline: true,
+    group: 'inline',
+    selectable: false,
+    parseDOM: [{ tag: 'br' }],
+    toDOM() {
+      return ['br']
+    },
+  }
+
+  // Add list nodes using prosemirror-schema-list
+  const nodesWithLists = addListNodes(basicNodes, 'paragraph block*', 'block')
+
+  // Create custom schema with enhanced nodes and marks
+  return new Schema({
+    nodes: nodesWithLists,
+    marks: basicMarks,
+  })
 }
-
-basicNodes.blockquote = {
-  content: 'block+',
-  group: 'block',
-  defining: true,
-  parseDOM: [{ tag: 'blockquote' }],
-  toDOM() {
-    return ['blockquote', 0]
-  },
-}
-
-basicNodes.hard_break = {
-  inline: true,
-  group: 'inline',
-  selectable: false,
-  parseDOM: [{ tag: 'br' }],
-  toDOM() {
-    return ['br']
-  },
-}
-
-// Add list nodes using prosemirror-schema-list
-const nodesWithLists = addListNodes(basicNodes, 'paragraph block*', 'block')
-
-// Create custom schema with enhanced nodes and marks
-const mySchema = new Schema({
-  nodes: nodesWithLists,
-  marks: basicMarks,
-})
 
 // Input rules for markdown syntax
 function createInputRules(schema: Schema) {
@@ -247,9 +250,17 @@ export function Editor({
 }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    if (!editorRef.current) return
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isClient || !editorRef.current) return
+
+    // Create schema on client side
+    const mySchema = createEditorSchema()
 
     // Create initial document
     let doc
@@ -300,7 +311,17 @@ export function Editor({
         viewRef.current = null
       }
     }
-  }, [initialContent, onChange])
+  }, [isClient, initialContent, onChange])
+
+  if (!isClient) {
+    return (
+      <div className={`prose max-w-none ${className}`}>
+        <div className="ProseMirror-editor min-h-[200px] rounded-md border border-gray-200 p-4">
+          <div className="text-gray-500">Loading editor...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`prose max-w-none ${className}`}>
