@@ -7,12 +7,7 @@ import { Schema, DOMParser } from 'prosemirror-model'
 import { schema } from 'prosemirror-schema-basic'
 import { addListNodes } from 'prosemirror-schema-list'
 import { exampleSetup } from 'prosemirror-example-setup'
-import {
-  inputRules,
-  wrappingInputRule,
-  textblockTypeInputRule,
-  InputRule,
-} from 'prosemirror-inputrules'
+import { inputRules, InputRule } from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
 import { toggleMark } from 'prosemirror-commands'
 
@@ -20,7 +15,9 @@ import { toggleMark } from 'prosemirror-commands'
 const mySchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block'),
   marks: {
-    ...schema.spec.marks,
+    // Use existing marks but override specific ones
+    link: schema.spec.marks.get('link')!,
+    code: schema.spec.marks.get('code')!,
     // Override strong mark with better DOM specification
     strong: {
       parseDOM: [
@@ -69,7 +66,7 @@ function createInputRules(schema: Schema) {
   rules.push(
     new InputRule(
       /(?:^|\s)\*\*([^*]+)\*\*$/,
-      (state: any, match: string[], start: number, end: number) => {
+      (state: EditorState, match: string[], start: number, end: number) => {
         const mark = schema.marks.strong.create()
         const text = schema.text(match[1], [mark])
         return state.tr.replaceWith(
@@ -85,7 +82,7 @@ function createInputRules(schema: Schema) {
   rules.push(
     new InputRule(
       /(?:^|\s)\*([^*]+)\*$/,
-      (state: any, match: string[], start: number, end: number) => {
+      (state: EditorState, match: string[], start: number, end: number) => {
         const mark = schema.marks.em.create()
         const text = schema.text(match[1], [mark])
         return state.tr.replaceWith(
@@ -101,7 +98,7 @@ function createInputRules(schema: Schema) {
   rules.push(
     new InputRule(
       /(?:^|\s)~~([^~]+)~~$/,
-      (state: any, match: string[], start: number, end: number) => {
+      (state: EditorState, match: string[], start: number, end: number) => {
         const mark = schema.marks.strikethrough.create()
         const text = schema.text(match[1], [mark])
         return state.tr.replaceWith(
@@ -118,6 +115,7 @@ function createInputRules(schema: Schema) {
 
 // Keymap for shortcuts
 function createKeymap(schema: Schema) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const keys: Record<string, any> = {}
 
   // Bold: Ctrl+B

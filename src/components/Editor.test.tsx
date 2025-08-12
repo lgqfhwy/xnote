@@ -1,8 +1,16 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { Editor } from './Editor'
 
+// Import mocked modules for testing
+import { inputRules, InputRule } from 'prosemirror-inputrules'
+import { keymap } from 'prosemirror-keymap'
+import { EditorState } from 'prosemirror-state'
+import { toggleMark } from 'prosemirror-commands'
+
 // Mock ProseMirror dependencies
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockEditorView: any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockState: any
 
 jest.mock('prosemirror-view', () => ({
@@ -158,10 +166,9 @@ describe('Editor', () => {
       render(<Editor />)
 
       // Verify that input rules were created with the correct patterns
-      const { inputRules } = require('prosemirror-inputrules')
       expect(inputRules).toHaveBeenCalled()
 
-      const inputRulesCall = inputRules.mock.calls[0][0]
+      const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
       expect(inputRulesCall.rules).toBeDefined()
       expect(inputRulesCall.rules.length).toBe(3)
     })
@@ -170,10 +177,9 @@ describe('Editor', () => {
       render(<Editor />)
 
       // Verify that keymap was created with correct shortcuts
-      const { keymap } = require('prosemirror-keymap')
       expect(keymap).toHaveBeenCalled()
 
-      const keymapCall = keymap.mock.calls[0][0]
+      const keymapCall = (keymap as jest.Mock).mock.calls[0][0]
       expect(keymapCall['Mod-b']).toBeDefined() // Bold shortcut
       expect(keymapCall['Mod-i']).toBeDefined() // Italic shortcut
       expect(keymapCall['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
@@ -196,10 +202,9 @@ describe('Editor', () => {
       render(<Editor />)
 
       // Verify that EditorState.create was called with plugins in correct order
-      const { EditorState } = require('prosemirror-state')
       expect(EditorState.create).toHaveBeenCalled()
 
-      const createCall = EditorState.create.mock.calls[0][0]
+      const createCall = (EditorState.create as jest.Mock).mock.calls[0][0]
       expect(createCall.plugins).toBeDefined()
       expect(createCall.plugins.length).toBeGreaterThanOrEqual(2) // input rules + keymap (+ example setup which returns [])
     })
@@ -208,7 +213,6 @@ describe('Editor', () => {
       render(<Editor />)
 
       // Verify that toggleMark was called for each mark type
-      const { toggleMark } = require('prosemirror-commands')
       expect(toggleMark).toHaveBeenCalledTimes(3) // bold, italic, strikethrough
     })
   })
@@ -217,7 +221,6 @@ describe('Editor', () => {
     it('creates bold input rule with correct regex', () => {
       render(<Editor />)
 
-      const { InputRule } = require('prosemirror-inputrules')
       const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
       // Find the bold input rule (should match **text**)
@@ -233,7 +236,6 @@ describe('Editor', () => {
     it('creates italic input rule with correct regex', () => {
       render(<Editor />)
 
-      const { InputRule } = require('prosemirror-inputrules')
       const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
       // Find the italic input rule (should match *text* but not **text**)
@@ -250,7 +252,6 @@ describe('Editor', () => {
     it('creates strikethrough input rule with correct regex', () => {
       render(<Editor />)
 
-      const { InputRule } = require('prosemirror-inputrules')
       const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
       // Find the strikethrough input rule (should match ~~text~~)
