@@ -34,42 +34,7 @@ export function Editor({
       return
     }
 
-    // Provide a minimal polyfill for append on multiple DOM prototypes if missing
-    try {
-      const appendShim = function (this: Node, ...nodes: unknown[]) {
-        const doc =
-          (this as Node & { ownerDocument?: Document }).ownerDocument ||
-          document
-        nodes.forEach((node) => {
-          const isNode = node instanceof Node
-          ;(this as Node).appendChild(
-            isNode ? (node as Node) : doc.createTextNode(String(node))
-          )
-        })
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const targets: any[] = []
-      if (typeof Element !== 'undefined') targets.push(Element.prototype)
-      if (typeof Document !== 'undefined') targets.push(Document.prototype)
-      if (typeof DocumentFragment !== 'undefined')
-        targets.push(DocumentFragment.prototype)
-      // ShadowRoot extends DocumentFragment; cover it just in case
-      const ShadowRootCtor: typeof ShadowRoot | undefined =
-        (typeof window !== 'undefined' &&
-          (window as { ShadowRoot?: typeof ShadowRoot }).ShadowRoot) ||
-        undefined
-      if (ShadowRootCtor && ShadowRootCtor.prototype)
-        targets.push(ShadowRootCtor.prototype)
-
-      targets.forEach((proto) => {
-        if (proto && typeof proto.append !== 'function') {
-          proto.append = appendShim
-        }
-      })
-    } catch {
-      // ignore if prototypes are sealed or in non-standard env
-    }
+    // Note: We no longer need to polyfill Element.append since we use a mount function approach
 
     // Test DOM element functionality (appendChild/removeChild are required)
     try {
@@ -359,19 +324,19 @@ export function Editor({
           throw new Error('DOM container not ready for EditorView creation')
         }
 
-        // Choose a mounting strategy:
-        // - In tests, keep direct element mounting to satisfy mocks
-        // - In runtime, use a function that mounts using appendChild (avoids Element.append entirely)
-        const place =
-          typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
-            ? (editorRef.current as unknown as Element)
-            : (node: HTMLElement) => {
-                const mount = editorRef.current!
-                while (mount.firstChild) mount.removeChild(mount.firstChild)
-                mount.appendChild(node)
-              }
+        // Use a function-based mounting strategy that avoids Element.append
+        // This approach is more reliable across different browser environments
+        const mountEditor = (editorDom: HTMLElement) => {
+          const container = editorRef.current!
+          // Clear existing content
+          while (container.firstChild) {
+            container.removeChild(container.firstChild)
+          }
+          // Mount the editor using appendChild (universally supported)
+          container.appendChild(editorDom)
+        }
 
-        const view = new EditorView(place as unknown as Element, {
+        const view = new EditorView(mountEditor, {
           state,
           dispatchTransaction(transaction) {
             const newState = view.state.apply(transaction)

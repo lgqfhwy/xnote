@@ -19,13 +19,19 @@ let mockEditorView: any
 let mockState: any
 
 jest.mock('prosemirror-view', () => ({
-  EditorView: jest.fn().mockImplementation((node, props) => {
+  EditorView: jest.fn().mockImplementation((mount, props) => {
     // Create a mock DOM element that looks like ProseMirror
     const mockDiv = document.createElement('div')
     mockDiv.className = 'ProseMirror'
     mockDiv.setAttribute('contenteditable', 'true')
     mockDiv.innerHTML = '<p>Mock editor content</p>'
-    node.appendChild(mockDiv)
+
+    // Handle both function and element mount strategies
+    if (typeof mount === 'function') {
+      mount(mockDiv)
+    } else {
+      mount.appendChild(mockDiv)
+    }
 
     mockEditorView = {
       dom: mockDiv,
