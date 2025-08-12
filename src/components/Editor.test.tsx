@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { Editor } from './Editor'
 
 // Import mocked modules for testing
@@ -180,7 +180,7 @@ describe('Editor', () => {
     jest.clearAllMocks()
   })
 
-  it('renders the editor component', () => {
+  it('renders the editor component', async () => {
     render(<Editor />)
 
     // Check if the editor container is present
@@ -188,333 +188,381 @@ describe('Editor', () => {
     expect(editorContainer).toBeInTheDocument()
   })
 
-  it('renders with ProseMirror class', () => {
+  it('renders with ProseMirror class', async () => {
     render(<Editor />)
 
-    // Check if the ProseMirror div is present
-    const proseMirrorDiv = document.querySelector('.ProseMirror')
-    expect(proseMirrorDiv).toBeInTheDocument()
+    // Wait for the async initialization to complete
+    await waitFor(() => {
+      const proseMirrorDiv = document.querySelector('.ProseMirror')
+      expect(proseMirrorDiv).toBeInTheDocument()
+    })
   })
 
-  it('applies custom className', () => {
+  it('applies custom className', async () => {
     render(<Editor className="custom-editor" />)
 
     const editorWrapper = document.querySelector('.custom-editor')
     expect(editorWrapper).toBeInTheDocument()
   })
 
-  it('has contentEditable attribute', () => {
+  it('has contentEditable attribute', async () => {
     render(<Editor />)
 
-    const proseMirrorDiv = document.querySelector('.ProseMirror')
-    expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+    await waitFor(() => {
+      const proseMirrorDiv = document.querySelector('.ProseMirror')
+      expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+    })
   })
 
-  it('contains mock editor content', () => {
+  it('contains mock editor content', async () => {
     render(<Editor />)
 
-    const proseMirrorDiv = document.querySelector('.ProseMirror')
-    expect(proseMirrorDiv).toHaveTextContent('Mock editor content')
+    await waitFor(() => {
+      const proseMirrorDiv = document.querySelector('.ProseMirror')
+      expect(proseMirrorDiv).toHaveTextContent('Mock editor content')
+    })
   })
 
   describe('Mark functionality', () => {
-    it('creates input rules for bold, italic, and strikethrough', () => {
+    it('creates input rules for bold, italic, and strikethrough', async () => {
       render(<Editor />)
 
-      // Verify that input rules were created with the correct patterns
-      expect(inputRules).toHaveBeenCalled()
+      // Wait for async initialization to complete
+      await waitFor(() => {
+        // Verify that input rules were created with the correct patterns
+        expect(inputRules).toHaveBeenCalled()
 
-      const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
-      expect(inputRulesCall.rules).toBeDefined()
-      expect(inputRulesCall.rules.length).toBeGreaterThanOrEqual(3) // Now includes block-level rules
+        const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
+        expect(inputRulesCall.rules).toBeDefined()
+        expect(inputRulesCall.rules.length).toBeGreaterThanOrEqual(3) // Now includes block-level rules
+      })
     })
 
-    it('creates keymap with correct shortcuts', () => {
+    it('creates keymap with correct shortcuts', async () => {
       render(<Editor />)
 
-      // Verify that keymap was created with correct shortcuts
-      expect(keymap).toHaveBeenCalled()
+      await waitFor(() => {
+        // Verify that keymap was created with correct shortcuts
+        expect(keymap).toHaveBeenCalled()
 
-      // Find the custom keymap call (should be the second call, first is baseKeymap)
-      const keymapCalls = (keymap as jest.Mock).mock.calls
-      const customKeymapCall = keymapCalls.find(
-        (call) => call[0]['Mod-b'] && call[0]['Mod-i'] && call[0]['Mod-Shift-s']
-      )
-      expect(customKeymapCall).toBeDefined()
+        // Find the custom keymap call (should be the second call, first is baseKeymap)
+        const keymapCalls = (keymap as jest.Mock).mock.calls
+        const customKeymapCall = keymapCalls.find(
+          (call) =>
+            call[0]['Mod-b'] && call[0]['Mod-i'] && call[0]['Mod-Shift-s']
+        )
+        expect(customKeymapCall).toBeDefined()
 
-      const customKeymap = customKeymapCall[0]
-      expect(customKeymap['Mod-b']).toBeDefined() // Bold shortcut
-      expect(customKeymap['Mod-i']).toBeDefined() // Italic shortcut
-      expect(customKeymap['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
+        const customKeymap = customKeymapCall[0]
+        expect(customKeymap['Mod-b']).toBeDefined() // Bold shortcut
+        expect(customKeymap['Mod-i']).toBeDefined() // Italic shortcut
+        expect(customKeymap['Mod-Shift-s']).toBeDefined() // Strikethrough shortcut
+      })
     })
 
-    it('sets up schema with enhanced marks', () => {
+    it('sets up schema with enhanced marks', async () => {
       render(<Editor />)
 
-      // The Schema is created at module load time, so we just verify the Editor renders
-      // with the enhanced schema functionality (which is tested through other tests)
-      const proseMirrorDiv = document.querySelector('.ProseMirror')
-      expect(proseMirrorDiv).toBeInTheDocument()
+      await waitFor(() => {
+        // The Schema is created at module load time, so we just verify the Editor renders
+        // with the enhanced schema functionality (which is tested through other tests)
+        const proseMirrorDiv = document.querySelector('.ProseMirror')
+        expect(proseMirrorDiv).toBeInTheDocument()
 
-      // Verify that the schema includes the expected mark functionality by checking
-      // if the component rendered without errors (indicating the schema was valid)
-      expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+        // Verify that the schema includes the expected mark functionality by checking
+        // if the component rendered without errors (indicating the schema was valid)
+        expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+      })
     })
 
-    it('configures plugins in correct order', () => {
+    it('configures plugins in correct order', async () => {
       render(<Editor />)
 
-      // Verify that EditorState.create was called with plugins in correct order
-      expect(EditorState.create).toHaveBeenCalled()
+      await waitFor(() => {
+        // Verify that EditorState.create was called with plugins in correct order
+        expect(EditorState.create).toHaveBeenCalled()
 
-      const createCall = (EditorState.create as jest.Mock).mock.calls[0][0]
-      expect(createCall.plugins).toBeDefined()
-      expect(createCall.plugins.length).toBeGreaterThanOrEqual(2) // input rules + keymap (+ example setup which returns [])
+        const createCall = (EditorState.create as jest.Mock).mock.calls[0][0]
+        expect(createCall.plugins).toBeDefined()
+        expect(createCall.plugins.length).toBeGreaterThanOrEqual(2) // input rules + keymap (+ example setup which returns [])
+      })
     })
 
-    it('integrates toggleMark commands for keyboard shortcuts', () => {
+    it('integrates toggleMark commands for keyboard shortcuts', async () => {
       render(<Editor />)
 
-      // Verify that toggleMark was called for each mark type
-      expect(toggleMark).toHaveBeenCalledTimes(3) // bold, italic, strikethrough
+      await waitFor(() => {
+        // Verify that toggleMark was called for each mark type
+        expect(toggleMark).toHaveBeenCalledTimes(3) // bold, italic, strikethrough
+      })
     })
   })
 
   describe('Input Rules Testing', () => {
-    it('creates bold input rule with correct regex', () => {
+    it('creates bold input rule with correct regex', async () => {
       render(<Editor />)
 
-      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+      await waitFor(() => {
+        const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
-      // Find the bold input rule (should match **text**)
-      const boldRule = inputRuleCalls.find((call) => {
-        const regex = call[0]
-        return regex.toString().includes('\\*\\*')
+        // Find the bold input rule (should match **text**)
+        const boldRule = inputRuleCalls.find((call) => {
+          const regex = call[0]
+          return regex.toString().includes('\\*\\*')
+        })
+
+        expect(boldRule).toBeDefined()
+        expect(boldRule[0]).toEqual(/(?:^|\s)\*\*([^*]+)\*\*$/)
       })
-
-      expect(boldRule).toBeDefined()
-      expect(boldRule[0]).toEqual(/(?:^|\s)\*\*([^*]+)\*\*$/)
     })
 
-    it('creates italic input rule with correct regex', () => {
+    it('creates italic input rule with correct regex', async () => {
       render(<Editor />)
 
-      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+      await waitFor(() => {
+        const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
-      // Find the italic input rule (should match *text* but not **text**)
-      const italicRule = inputRuleCalls.find((call) => {
-        const regex = call[0]
-        const regexStr = regex.toString()
-        return regexStr.includes('\\*') && !regexStr.includes('\\*\\*')
+        // Find the italic input rule (should match *text* but not **text**)
+        const italicRule = inputRuleCalls.find((call) => {
+          const regex = call[0]
+          const regexStr = regex.toString()
+          return regexStr.includes('\\*') && !regexStr.includes('\\*\\*')
+        })
+
+        expect(italicRule).toBeDefined()
+        expect(italicRule[0]).toEqual(/(?:^|\s)\*([^*]+)\*$/)
       })
-
-      expect(italicRule).toBeDefined()
-      expect(italicRule[0]).toEqual(/(?:^|\s)\*([^*]+)\*$/)
     })
 
-    it('creates strikethrough input rule with correct regex', () => {
+    it('creates strikethrough input rule with correct regex', async () => {
       render(<Editor />)
 
-      const inputRuleCalls = (InputRule as jest.Mock).mock.calls
+      await waitFor(() => {
+        const inputRuleCalls = (InputRule as jest.Mock).mock.calls
 
-      // Find the strikethrough input rule (should match ~~text~~)
-      const strikeRule = inputRuleCalls.find((call) => {
-        const regex = call[0]
-        return regex.toString().includes('~~')
+        // Find the strikethrough input rule (should match ~~text~~)
+        const strikeRule = inputRuleCalls.find((call) => {
+          const regex = call[0]
+          return regex.toString().includes('~~')
+        })
+
+        expect(strikeRule).toBeDefined()
+        expect(strikeRule[0]).toEqual(/(?:^|\s)~~([^~]+)~~$/)
       })
-
-      expect(strikeRule).toBeDefined()
-      expect(strikeRule[0]).toEqual(/(?:^|\s)~~([^~]+)~~$/)
     })
   })
 
   describe('Block-level Elements (Task 5.4.3)', () => {
     describe('Heading Input Rules', () => {
-      it('creates textblock input rules for all heading levels (H1-H6)', () => {
+      it('creates textblock input rules for all heading levels (H1-H6)', async () => {
         render(<Editor />)
 
-        // Verify that textblockTypeInputRule was called for each heading level
-        expect(textblockTypeInputRule).toHaveBeenCalledTimes(6)
+        await waitFor(() => {
+          // Verify that textblockTypeInputRule was called for each heading level
+          expect(textblockTypeInputRule).toHaveBeenCalledTimes(6)
 
-        // Check each heading level
-        const calls = (textblockTypeInputRule as jest.Mock).mock.calls
+          // Check each heading level
+          const calls = (textblockTypeInputRule as jest.Mock).mock.calls
 
-        // H1: #
-        expect(calls[0][0]).toEqual(new RegExp('^(#{1})\\s$'))
-        expect(calls[0][2]).toEqual({ level: 1 })
+          // H1: #
+          expect(calls[0][0]).toEqual(new RegExp('^(#{1})\\s$'))
+          expect(calls[0][2]).toEqual({ level: 1 })
 
-        // H2: ##
-        expect(calls[1][0]).toEqual(new RegExp('^(#{2})\\s$'))
-        expect(calls[1][2]).toEqual({ level: 2 })
+          // H2: ##
+          expect(calls[1][0]).toEqual(new RegExp('^(#{2})\\s$'))
+          expect(calls[1][2]).toEqual({ level: 2 })
 
-        // H3: ###
-        expect(calls[2][0]).toEqual(new RegExp('^(#{3})\\s$'))
-        expect(calls[2][2]).toEqual({ level: 3 })
+          // H3: ###
+          expect(calls[2][0]).toEqual(new RegExp('^(#{3})\\s$'))
+          expect(calls[2][2]).toEqual({ level: 3 })
 
-        // H6: ######
-        expect(calls[5][0]).toEqual(new RegExp('^(#{6})\\s$'))
-        expect(calls[5][2]).toEqual({ level: 6 })
+          // H6: ######
+          expect(calls[5][0]).toEqual(new RegExp('^(#{6})\\s$'))
+          expect(calls[5][2]).toEqual({ level: 6 })
+        })
       })
 
-      it('heading input rules use correct regex patterns', () => {
+      it('heading input rules use correct regex patterns', async () => {
         render(<Editor />)
 
-        const calls = (textblockTypeInputRule as jest.Mock).mock.calls
+        await waitFor(() => {
+          const calls = (textblockTypeInputRule as jest.Mock).mock.calls
 
-        // Verify each heading regex matches expected pattern
-        for (let level = 1; level <= 6; level++) {
-          const expectedRegex = new RegExp(`^(#{${level}})\\s$`)
-          expect(calls[level - 1][0]).toEqual(expectedRegex)
-        }
+          // Verify each heading regex matches expected pattern
+          for (let level = 1; level <= 6; level++) {
+            const expectedRegex = new RegExp(`^(#{${level}})\\s$`)
+            expect(calls[level - 1][0]).toEqual(expectedRegex)
+          }
+        })
       })
     })
 
     describe('List Input Rules', () => {
-      it('creates wrapping input rule for unordered lists', () => {
+      it('creates wrapping input rule for unordered lists', async () => {
         render(<Editor />)
 
-        // Find the bullet list wrapping rule
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const bulletListRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('[-*+]')
-        )
+        await waitFor(() => {
+          // Find the bullet list wrapping rule
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const bulletListRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('[-*+]')
+          )
 
-        expect(bulletListRule).toBeDefined()
-        expect(bulletListRule[0]).toEqual(/^\s*([-*+])\s$/)
+          expect(bulletListRule).toBeDefined()
+          expect(bulletListRule[0]).toEqual(/^\s*([-*+])\s$/)
+        })
       })
 
-      it('creates wrapping input rule for ordered lists', () => {
+      it('creates wrapping input rule for ordered lists', async () => {
         render(<Editor />)
 
-        // Find the ordered list wrapping rule
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const orderedListRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('\\d+')
-        )
+        await waitFor(() => {
+          // Find the ordered list wrapping rule
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const orderedListRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('\\d+')
+          )
 
-        expect(orderedListRule).toBeDefined()
-        expect(orderedListRule[0]).toEqual(/^(\d+)\.\s$/)
+          expect(orderedListRule).toBeDefined()
+          expect(orderedListRule[0]).toEqual(/^(\d+)\.\s$/)
+        })
       })
 
-      it('unordered list rule matches various markdown bullets', () => {
+      it('unordered list rule matches various markdown bullets', async () => {
         render(<Editor />)
 
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const bulletListRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('[-*+]')
-        )
-        const regex = bulletListRule[0]
+        await waitFor(() => {
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const bulletListRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('[-*+]')
+          )
+          const regex = bulletListRule[0]
 
-        // Test that the regex matches different bullet types
-        expect('* '.match(regex)).toBeTruthy()
-        expect('- '.match(regex)).toBeTruthy()
-        expect('+ '.match(regex)).toBeTruthy()
-        expect('  * '.match(regex)).toBeTruthy() // With indentation
+          // Test that the regex matches different bullet types
+          expect('* '.match(regex)).toBeTruthy()
+          expect('- '.match(regex)).toBeTruthy()
+          expect('+ '.match(regex)).toBeTruthy()
+          expect('  * '.match(regex)).toBeTruthy() // With indentation
+        })
       })
 
-      it('ordered list rule matches numbered lists', () => {
+      it('ordered list rule matches numbered lists', async () => {
         render(<Editor />)
 
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const orderedListRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('\\d+')
-        )
-        const regex = orderedListRule[0]
+        await waitFor(() => {
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const orderedListRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('\\d+')
+          )
+          const regex = orderedListRule[0]
 
-        // Test that the regex matches different number formats
-        expect('1. '.match(regex)).toBeTruthy()
-        expect('42. '.match(regex)).toBeTruthy()
-        expect('999. '.match(regex)).toBeTruthy()
+          // Test that the regex matches different number formats
+          expect('1. '.match(regex)).toBeTruthy()
+          expect('42. '.match(regex)).toBeTruthy()
+          expect('999. '.match(regex)).toBeTruthy()
+        })
       })
     })
 
     describe('Blockquote Input Rules', () => {
-      it('creates wrapping input rule for blockquotes', () => {
+      it('creates wrapping input rule for blockquotes', async () => {
         render(<Editor />)
 
-        // Find the blockquote wrapping rule
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const blockquoteRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('>')
-        )
+        await waitFor(() => {
+          // Find the blockquote wrapping rule
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const blockquoteRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('>')
+          )
 
-        expect(blockquoteRule).toBeDefined()
-        expect(blockquoteRule[0]).toEqual(/^\s*>\s$/)
+          expect(blockquoteRule).toBeDefined()
+          expect(blockquoteRule[0]).toEqual(/^\s*>\s$/)
+        })
       })
 
-      it('blockquote rule matches various quote formats', () => {
+      it('blockquote rule matches various quote formats', async () => {
         render(<Editor />)
 
-        const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
-        const blockquoteRule = wrappingCalls.find((call) =>
-          call[0].toString().includes('>')
-        )
-        const regex = blockquoteRule[0]
+        await waitFor(() => {
+          const wrappingCalls = (wrappingInputRule as jest.Mock).mock.calls
+          const blockquoteRule = wrappingCalls.find((call) =>
+            call[0].toString().includes('>')
+          )
+          const regex = blockquoteRule[0]
 
-        // Test that the regex matches different quote formats
-        // The regex is /^\s*>\s$/ which requires exactly one space after >
-        expect('> '.match(regex)).toBeTruthy()
-        expect('  > '.match(regex)).toBeTruthy() // With indentation
-        // Note: '>  ' (extra space after >) would not match the exact regex /^\s*>\s$/
+          // Test that the regex matches different quote formats
+          // The regex is /^\s*>\s$/ which requires exactly one space after >
+          expect('> '.match(regex)).toBeTruthy()
+          expect('  > '.match(regex)).toBeTruthy() // With indentation
+          // Note: '>  ' (extra space after >) would not match the exact regex /^\s*>\s$/
+        })
       })
     })
 
     describe('Schema Integration', () => {
-      it('creates enhanced schema with all block-level nodes', () => {
+      it('creates enhanced schema with all block-level nodes', async () => {
         render(<Editor />)
 
-        // The schema creation happens during module load
-        // We verify through successful component rendering that includes all node types
-        const proseMirrorDiv = document.querySelector('.ProseMirror')
-        expect(proseMirrorDiv).toBeInTheDocument()
+        await waitFor(() => {
+          // The schema creation happens during module load
+          // We verify through successful component rendering that includes all node types
+          const proseMirrorDiv = document.querySelector('.ProseMirror')
+          expect(proseMirrorDiv).toBeInTheDocument()
 
-        // Schema must include nodes for the input rules to work
-        // This is validated by the component rendering without errors
-        expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+          // Schema must include nodes for the input rules to work
+          // This is validated by the component rendering without errors
+          expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+        })
       })
 
-      it('integrates with addListNodes from prosemirror-schema-list', () => {
+      it('integrates with addListNodes from prosemirror-schema-list', async () => {
         render(<Editor />)
 
-        // Verify that the schema includes list functionality
-        // by checking that the component renders successfully with list input rules
-        const proseMirrorDiv = document.querySelector('.ProseMirror')
-        expect(proseMirrorDiv).toBeInTheDocument()
+        await waitFor(() => {
+          // Verify that the schema includes list functionality
+          // by checking that the component renders successfully with list input rules
+          const proseMirrorDiv = document.querySelector('.ProseMirror')
+          expect(proseMirrorDiv).toBeInTheDocument()
 
-        // If addListNodes failed, the schema creation would fail and component wouldn't render
-        expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+          // If addListNodes failed, the schema creation would fail and component wouldn't render
+          expect(proseMirrorDiv).toHaveAttribute('contenteditable', 'true')
+        })
       })
     })
 
     describe('Input Rules Integration', () => {
-      it('includes all block-level input rules in the final plugin', () => {
+      it('includes all block-level input rules in the final plugin', async () => {
         render(<Editor />)
 
-        expect(inputRules).toHaveBeenCalled()
+        await waitFor(() => {
+          expect(inputRules).toHaveBeenCalled()
 
-        const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
-        expect(inputRulesCall.rules).toBeDefined()
+          const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
+          expect(inputRulesCall.rules).toBeDefined()
 
-        // Should include: 3 mark rules + 6 heading rules + 2 list rules + 1 blockquote rule = 12 total
-        expect(inputRulesCall.rules.length).toBe(12)
+          // Should include: 3 mark rules + 6 heading rules + 2 list rules + 1 blockquote rule = 12 total
+          expect(inputRulesCall.rules.length).toBe(12)
+        })
       })
 
-      it('verifies input rules are created in correct order', () => {
+      it('verifies input rules are created in correct order', async () => {
         render(<Editor />)
 
-        const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
-        const rules = inputRulesCall.rules
+        await waitFor(() => {
+          const inputRulesCall = (inputRules as jest.Mock).mock.calls[0][0]
+          const rules = inputRulesCall.rules
 
-        // First 3 should be mark rules (bold, italic, strikethrough)
-        expect(rules[0].regex).toEqual(/(?:^|\s)\*\*([^*]+)\*\*$/)
-        expect(rules[1].regex).toEqual(/(?:^|\s)\*([^*]+)\*$/)
-        expect(rules[2].regex).toEqual(/(?:^|\s)~~([^~]+)~~$/)
+          // First 3 should be mark rules (bold, italic, strikethrough)
+          expect(rules[0].regex).toEqual(/(?:^|\s)\*\*([^*]+)\*\*$/)
+          expect(rules[1].regex).toEqual(/(?:^|\s)\*([^*]+)\*$/)
+          expect(rules[2].regex).toEqual(/(?:^|\s)~~([^~]+)~~$/)
 
-        // Next 6 should be heading rules
-        for (let i = 3; i < 9; i++) {
-          const level = i - 2
-          expect(rules[i].attrs).toEqual({ level })
-        }
+          // Next 6 should be heading rules
+          for (let i = 3; i < 9; i++) {
+            const level = i - 2
+            expect(rules[i].attrs).toEqual({ level })
+          }
+        })
       })
     })
   })
