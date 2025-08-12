@@ -1,242 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { EditorState } from 'prosemirror-state'
-import { EditorView } from 'prosemirror-view'
-import { Schema, DOMParser } from 'prosemirror-model'
-import { schema } from 'prosemirror-schema-basic'
-import { addListNodes } from 'prosemirror-schema-list'
-import { history } from 'prosemirror-history'
-import { baseKeymap } from 'prosemirror-commands'
-import {
-  inputRules,
-  InputRule,
-  wrappingInputRule,
-  textblockTypeInputRule,
-} from 'prosemirror-inputrules'
-import { keymap } from 'prosemirror-keymap'
-import { toggleMark } from 'prosemirror-commands'
 
-// Function to create schema lazily on client side
-function createEditorSchema() {
-  // Create basic marks object
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const basicMarks: any = {
-    // Override strong mark with better DOM specification
-    strong: {
-      parseDOM: [
-        { tag: 'strong' },
-        {
-          tag: 'b',
-          getAttrs: (node: HTMLElement) =>
-            node.style.fontWeight !== 'normal' && null,
-        },
-        {
-          style: 'font-weight',
-          getAttrs: (value: string) =>
-            /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
-        },
-      ],
-      toDOM() {
-        return ['strong', 0]
-      },
-    },
-    // Override em mark
-    em: {
-      parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
-      toDOM() {
-        return ['em', 0]
-      },
-    },
-    // Add strikethrough mark
-    strikethrough: {
-      parseDOM: [
-        { tag: 's' },
-        { tag: 'del' },
-        { style: 'text-decoration=line-through' },
-      ],
-      toDOM() {
-        return ['s', 0]
-      },
-    },
-  }
-
-  // Add existing marks if available
-  if (schema.spec.marks.get && schema.spec.marks.get('link')) {
-    basicMarks.link = schema.spec.marks.get('link')
-  }
-  if (schema.spec.marks.get && schema.spec.marks.get('code')) {
-    basicMarks.code = schema.spec.marks.get('code')
-  }
-
-  // Create enhanced nodes object
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const basicNodes: any = {}
-
-  // Add base nodes from the schema
-  if (schema.spec.nodes.get) {
-    // Runtime environment - use get method
-    basicNodes.doc = schema.spec.nodes.get('doc')
-    basicNodes.paragraph = schema.spec.nodes.get('paragraph')
-    basicNodes.text = schema.spec.nodes.get('text')
-  } else {
-    // Test environment - direct access
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const nodes = schema.spec.nodes as any
-    basicNodes.doc = nodes.doc
-    basicNodes.paragraph = nodes.paragraph
-    basicNodes.text = nodes.text
-  }
-
-  // Add enhanced nodes
-  basicNodes.heading = {
-    attrs: { level: { default: 1 } },
-    content: 'inline*',
-    group: 'block',
-    defining: true,
-    parseDOM: [
-      { tag: 'h1', attrs: { level: 1 } },
-      { tag: 'h2', attrs: { level: 2 } },
-      { tag: 'h3', attrs: { level: 3 } },
-      { tag: 'h4', attrs: { level: 4 } },
-      { tag: 'h5', attrs: { level: 5 } },
-      { tag: 'h6', attrs: { level: 6 } },
-    ],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toDOM(node: any) {
-      return ['h' + node.attrs.level, 0]
-    },
-  }
-
-  basicNodes.blockquote = {
-    content: 'block+',
-    group: 'block',
-    defining: true,
-    parseDOM: [{ tag: 'blockquote' }],
-    toDOM() {
-      return ['blockquote', 0]
-    },
-  }
-
-  basicNodes.hard_break = {
-    inline: true,
-    group: 'inline',
-    selectable: false,
-    parseDOM: [{ tag: 'br' }],
-    toDOM() {
-      return ['br']
-    },
-  }
-
-  // Add list nodes using prosemirror-schema-list
-  const nodesWithLists = addListNodes(basicNodes, 'paragraph block*', 'block')
-
-  // Create custom schema with enhanced nodes and marks
-  return new Schema({
-    nodes: nodesWithLists,
-    marks: basicMarks,
-  })
-}
-
-// Input rules for markdown syntax
-function createInputRules(schema: Schema) {
-  const rules = []
-
-  // Bold: **text** -> <strong>text</strong>
-  rules.push(
-    new InputRule(
-      /(?:^|\s)\*\*([^*]+)\*\*$/,
-      (state: EditorState, match: string[], start: number, end: number) => {
-        const mark = schema.marks.strong.create()
-        const text = schema.text(match[1], [mark])
-        return state.tr.replaceWith(
-          start + (match[0].startsWith(' ') ? 1 : 0),
-          end,
-          text
-        )
-      }
-    )
-  )
-
-  // Italic: *text* -> <em>text</em>
-  rules.push(
-    new InputRule(
-      /(?:^|\s)\*([^*]+)\*$/,
-      (state: EditorState, match: string[], start: number, end: number) => {
-        const mark = schema.marks.em.create()
-        const text = schema.text(match[1], [mark])
-        return state.tr.replaceWith(
-          start + (match[0].startsWith(' ') ? 1 : 0),
-          end,
-          text
-        )
-      }
-    )
-  )
-
-  // Strikethrough: ~~text~~ -> <s>text</s>
-  rules.push(
-    new InputRule(
-      /(?:^|\s)~~([^~]+)~~$/,
-      (state: EditorState, match: string[], start: number, end: number) => {
-        const mark = schema.marks.strikethrough.create()
-        const text = schema.text(match[1], [mark])
-        return state.tr.replaceWith(
-          start + (match[0].startsWith(' ') ? 1 : 0),
-          end,
-          text
-        )
-      }
-    )
-  )
-
-  // Headings: # ## ### #### ##### ###### -> <h1> <h2> etc.
-  for (let level = 1; level <= 6; level++) {
-    rules.push(
-      textblockTypeInputRule(
-        new RegExp(`^(#{${level}})\\s$`),
-        schema.nodes.heading,
-        { level }
-      )
-    )
-  }
-
-  // Unordered list: * - + -> <ul><li>
-  if (schema.nodes.bullet_list) {
-    rules.push(wrappingInputRule(/^\s*([-*+])\s$/, schema.nodes.bullet_list))
-  }
-
-  // Ordered list: 1. 2. etc. -> <ol><li>
-  if (schema.nodes.ordered_list) {
-    rules.push(wrappingInputRule(/^(\d+)\.\s$/, schema.nodes.ordered_list))
-  }
-
-  // Blockquote: > -> <blockquote>
-  if (schema.nodes.blockquote) {
-    rules.push(wrappingInputRule(/^\s*>\s$/, schema.nodes.blockquote))
-  }
-
-  return inputRules({ rules })
-}
-
-// Keymap for shortcuts
-function createKeymap(schema: Schema) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const keys: Record<string, any> = {}
-
-  // Bold: Ctrl+B
-  keys['Mod-b'] = toggleMark(schema.marks.strong)
-
-  // Italic: Ctrl+I
-  keys['Mod-i'] = toggleMark(schema.marks.em)
-
-  // Strikethrough: Ctrl+Shift+S (if mark exists)
-  if (schema.marks.strikethrough) {
-    keys['Mod-Shift-s'] = toggleMark(schema.marks.strikethrough)
-  }
-
-  return keymap(keys)
-}
+// All ProseMirror logic will be moved inside useEffect to ensure proper runtime loading
 
 export interface EditorProps {
   className?: string
@@ -250,57 +16,338 @@ export function Editor({
   onChange,
 }: EditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef<EditorView | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const viewRef = useRef<any>(null)
 
   useEffect(() => {
     if (!editorRef.current) return
 
-    // Create schema on client side
-    const mySchema = createEditorSchema()
-
-    // Create initial document
-    let doc
-    if (initialContent) {
-      const element = document.createElement('div')
-      element.innerHTML = initialContent
-      doc = DOMParser.fromSchema(mySchema).parse(element)
-    } else {
-      doc = mySchema.nodes.doc.createAndFill()!
+    // Ensure we're in a proper browser environment with full DOM support
+    if (
+      typeof window === 'undefined' ||
+      typeof document === 'undefined' ||
+      !document.createElement ||
+      !document.createTextNode ||
+      typeof Node === 'undefined'
+    ) {
+      console.warn('DOM environment not ready, skipping editor initialization')
+      return
     }
 
-    // Create editor state
-    const state = EditorState.create({
-      doc,
-      plugins: [
-        history(),
-        keymap(baseKeymap),
-        createInputRules(mySchema),
-        createKeymap(mySchema),
-      ],
-    })
+    // Test DOM element functionality
+    try {
+      const testDiv = document.createElement('div')
+      if (
+        typeof testDiv.appendChild !== 'function' ||
+        typeof testDiv.removeChild !== 'function' ||
+        typeof testDiv.insertBefore !== 'function'
+      ) {
+        console.warn(
+          'DOM element methods not available, skipping editor initialization'
+        )
+        return
+      }
+    } catch (error) {
+      console.warn('Failed to test DOM functionality:', error)
+      return
+    }
 
-    // Create editor view
-    const view = new EditorView(editorRef.current, {
-      state,
-      dispatchTransaction(transaction) {
-        const newState = view.state.apply(transaction)
-        view.updateState(newState)
+    // Ensure the container element has all required DOM methods
+    if (
+      !editorRef.current.appendChild ||
+      !editorRef.current.removeChild ||
+      !editorRef.current.insertBefore
+    ) {
+      console.warn('Container element missing required DOM methods')
+      return
+    }
 
-        // Call onChange if provided
-        if (onChange && transaction.docChanged) {
-          const content = view.dom.innerHTML
-          onChange(content)
+    // Dynamically import all ProseMirror modules to ensure they load at runtime
+    const initializeEditor = async () => {
+      try {
+        const [
+          { EditorState },
+          { EditorView },
+          { Schema, DOMParser },
+          { schema },
+          { addListNodes },
+          { history },
+          { baseKeymap, toggleMark },
+          { inputRules, InputRule, wrappingInputRule, textblockTypeInputRule },
+          { keymap },
+        ] = await Promise.all([
+          import('prosemirror-state'),
+          import('prosemirror-view'),
+          import('prosemirror-model'),
+          import('prosemirror-schema-basic'),
+          import('prosemirror-schema-list'),
+          import('prosemirror-history'),
+          import('prosemirror-commands'),
+          import('prosemirror-inputrules'),
+          import('prosemirror-keymap'),
+        ])
+
+        // Create schema function
+        const createEditorSchema = () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const basicMarks: any = {
+            strong: {
+              parseDOM: [
+                { tag: 'strong' },
+                {
+                  tag: 'b',
+                  getAttrs: (node: HTMLElement) =>
+                    node.style.fontWeight !== 'normal' && null,
+                },
+                {
+                  style: 'font-weight',
+                  getAttrs: (value: string) =>
+                    /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
+                },
+              ],
+              toDOM() {
+                return ['strong', 0]
+              },
+            },
+            em: {
+              parseDOM: [
+                { tag: 'i' },
+                { tag: 'em' },
+                { style: 'font-style=italic' },
+              ],
+              toDOM() {
+                return ['em', 0]
+              },
+            },
+            strikethrough: {
+              parseDOM: [
+                { tag: 's' },
+                { tag: 'del' },
+                { style: 'text-decoration=line-through' },
+              ],
+              toDOM() {
+                return ['s', 0]
+              },
+            },
+          }
+
+          // Add existing marks if available
+          if (schema.spec.marks.get && schema.spec.marks.get('link')) {
+            basicMarks.link = schema.spec.marks.get('link')
+          }
+          if (schema.spec.marks.get && schema.spec.marks.get('code')) {
+            basicMarks.code = schema.spec.marks.get('code')
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const basicNodes: any = {}
+
+          if (schema.spec.nodes.get) {
+            basicNodes.doc = schema.spec.nodes.get('doc')
+            basicNodes.paragraph = schema.spec.nodes.get('paragraph')
+            basicNodes.text = schema.spec.nodes.get('text')
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const nodes = schema.spec.nodes as any
+            basicNodes.doc = nodes.doc
+            basicNodes.paragraph = nodes.paragraph
+            basicNodes.text = nodes.text
+          }
+
+          basicNodes.heading = {
+            attrs: { level: { default: 1 } },
+            content: 'inline*',
+            group: 'block',
+            defining: true,
+            parseDOM: [
+              { tag: 'h1', attrs: { level: 1 } },
+              { tag: 'h2', attrs: { level: 2 } },
+              { tag: 'h3', attrs: { level: 3 } },
+              { tag: 'h4', attrs: { level: 4 } },
+              { tag: 'h5', attrs: { level: 5 } },
+              { tag: 'h6', attrs: { level: 6 } },
+            ],
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            toDOM(node: any) {
+              return ['h' + node.attrs.level, 0]
+            },
+          }
+
+          basicNodes.blockquote = {
+            content: 'block+',
+            group: 'block',
+            defining: true,
+            parseDOM: [{ tag: 'blockquote' }],
+            toDOM() {
+              return ['blockquote', 0]
+            },
+          }
+
+          basicNodes.hard_break = {
+            inline: true,
+            group: 'inline',
+            selectable: false,
+            parseDOM: [{ tag: 'br' }],
+            toDOM() {
+              return ['br']
+            },
+          }
+
+          const nodesWithLists = addListNodes(
+            basicNodes,
+            'paragraph block*',
+            'block'
+          )
+          return new Schema({ nodes: nodesWithLists, marks: basicMarks })
         }
-      },
-    })
 
-    viewRef.current = view
+        // Create input rules function
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const createInputRules = (schema: any) => {
+          const rules = []
+
+          // Bold, italic, strikethrough
+          rules.push(
+            new InputRule(
+              /(?:^|\s)\*\*([^*]+)\*\*$/,
+              (state, match, start, end) => {
+                const mark = schema.marks.strong.create()
+                const text = schema.text(match[1], [mark])
+                return state.tr.replaceWith(
+                  start + (match[0].startsWith(' ') ? 1 : 0),
+                  end,
+                  text
+                )
+              }
+            ),
+            new InputRule(
+              /(?:^|\s)\*([^*]+)\*$/,
+              (state, match, start, end) => {
+                const mark = schema.marks.em.create()
+                const text = schema.text(match[1], [mark])
+                return state.tr.replaceWith(
+                  start + (match[0].startsWith(' ') ? 1 : 0),
+                  end,
+                  text
+                )
+              }
+            ),
+            new InputRule(
+              /(?:^|\s)~~([^~]+)~~$/,
+              (state, match, start, end) => {
+                const mark = schema.marks.strikethrough.create()
+                const text = schema.text(match[1], [mark])
+                return state.tr.replaceWith(
+                  start + (match[0].startsWith(' ') ? 1 : 0),
+                  end,
+                  text
+                )
+              }
+            )
+          )
+
+          // Headings
+          for (let level = 1; level <= 6; level++) {
+            rules.push(
+              textblockTypeInputRule(
+                new RegExp(`^(#{${level}})\\s$`),
+                schema.nodes.heading,
+                { level }
+              )
+            )
+          }
+
+          // Lists and blockquotes
+          if (schema.nodes.bullet_list) {
+            rules.push(
+              wrappingInputRule(/^\s*([-*+])\s$/, schema.nodes.bullet_list)
+            )
+          }
+          if (schema.nodes.ordered_list) {
+            rules.push(
+              wrappingInputRule(/^(\d+)\.\s$/, schema.nodes.ordered_list)
+            )
+          }
+          if (schema.nodes.blockquote) {
+            rules.push(wrappingInputRule(/^\s*>\s$/, schema.nodes.blockquote))
+          }
+
+          return inputRules({ rules })
+        }
+
+        // Create keymap function
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const createKeymap = (schema: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const keys: Record<string, any> = {}
+          keys['Mod-b'] = toggleMark(schema.marks.strong)
+          keys['Mod-i'] = toggleMark(schema.marks.em)
+          if (schema.marks.strikethrough) {
+            keys['Mod-Shift-s'] = toggleMark(schema.marks.strikethrough)
+          }
+          return keymap(keys)
+        }
+
+        // Now initialize the editor
+        const mySchema = createEditorSchema()
+
+        let doc
+        if (initialContent) {
+          const element = document.createElement('div')
+          element.innerHTML = initialContent
+          doc = DOMParser.fromSchema(mySchema).parse(element)
+        } else {
+          doc = mySchema.nodes.doc.createAndFill()!
+        }
+
+        const state = EditorState.create({
+          doc,
+          plugins: [
+            history(),
+            keymap(baseKeymap),
+            createInputRules(mySchema),
+            createKeymap(mySchema),
+          ],
+        })
+
+        const view = new EditorView(editorRef.current, {
+          state,
+          dispatchTransaction(transaction) {
+            const newState = view.state.apply(transaction)
+            view.updateState(newState)
+
+            if (onChange && transaction.docChanged) {
+              const content = view.dom.innerHTML
+              onChange(content)
+            }
+          },
+        })
+
+        viewRef.current = view
+      } catch (error) {
+        console.error('Failed to initialize ProseMirror editor:', error)
+        if (editorRef.current) {
+          editorRef.current.innerHTML = `
+            <div style="padding: 16px; border: 1px solid #ef4444; border-radius: 6px; background: #fef2f2; color: #b91c1c;">
+              <strong>Editor Error:</strong> Failed to initialize the editor. Please refresh the page.
+              <br><small>Error: ${error instanceof Error ? error.message : 'Unknown error'}</small>
+            </div>
+          `
+        }
+      }
+    }
+
+    initializeEditor()
 
     // Cleanup function
     return () => {
       if (viewRef.current) {
-        viewRef.current.destroy()
-        viewRef.current = null
+        try {
+          viewRef.current.destroy()
+          viewRef.current = null
+        } catch (error) {
+          console.error('Error destroying editor:', error)
+        }
       }
     }
   }, [initialContent, onChange])
