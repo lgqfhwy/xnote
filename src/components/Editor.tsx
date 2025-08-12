@@ -56,15 +56,35 @@ export function Editor({
     if (
       !editorRef.current.appendChild ||
       !editorRef.current.removeChild ||
-      !editorRef.current.insertBefore
+      !editorRef.current.insertBefore ||
+      !editorRef.current.append ||
+      !editorRef.current.prepend ||
+      !editorRef.current.replaceChild
     ) {
       console.warn('Container element missing required DOM methods')
+      return
+    }
+
+    // Additional validation for modern DOM methods that ProseMirror uses
+    try {
+      // Test that we can create and manipulate child elements
+      const testChild = document.createElement('div')
+      editorRef.current.appendChild(testChild)
+      editorRef.current.removeChild(testChild)
+    } catch (error) {
+      console.warn('DOM manipulation test failed:', error)
       return
     }
 
     // Dynamically import all ProseMirror modules to ensure they load at runtime
     const initializeEditor = async () => {
       try {
+        // Use requestAnimationFrame to ensure DOM is fully ready
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            setTimeout(resolve, 100) // Additional safety delay
+          })
+        })
         const [
           { EditorState },
           { EditorView },
@@ -309,6 +329,20 @@ export function Editor({
             createKeymap(mySchema),
           ],
         })
+
+        // Final validation before creating EditorView
+        if (!editorRef.current) {
+          throw new Error('DOM container not ready for EditorView creation')
+        }
+
+        // In test environment, the append method might not exist, so we'll skip this check
+        if (
+          typeof window !== 'undefined' &&
+          process.env.NODE_ENV !== 'test' &&
+          !editorRef.current.append
+        ) {
+          throw new Error('DOM container missing append method')
+        }
 
         const view = new EditorView(editorRef.current, {
           state,
