@@ -7,7 +7,12 @@ import { Schema, DOMParser } from 'prosemirror-model'
 import { schema } from 'prosemirror-schema-basic'
 import { addListNodes } from 'prosemirror-schema-list'
 import { exampleSetup } from 'prosemirror-example-setup'
-import { inputRules, InputRule } from 'prosemirror-inputrules'
+import {
+  inputRules,
+  InputRule,
+  wrappingInputRule,
+  textblockTypeInputRule,
+} from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
 import { toggleMark } from 'prosemirror-commands'
 
@@ -61,9 +66,71 @@ if (schema.spec.marks.get && schema.spec.marks.get('code')) {
   basicMarks.code = schema.spec.marks.get('code')
 }
 
-// Create custom schema with enhanced marks
+// Create enhanced nodes object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const basicNodes: any = {}
+
+// Add base nodes from the schema
+if (schema.spec.nodes.get) {
+  // Runtime environment - use get method
+  basicNodes.doc = schema.spec.nodes.get('doc')
+  basicNodes.paragraph = schema.spec.nodes.get('paragraph')
+  basicNodes.text = schema.spec.nodes.get('text')
+} else {
+  // Test environment - direct access
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodes = schema.spec.nodes as any
+  basicNodes.doc = nodes.doc
+  basicNodes.paragraph = nodes.paragraph
+  basicNodes.text = nodes.text
+}
+
+// Add enhanced nodes
+basicNodes.heading = {
+  attrs: { level: { default: 1 } },
+  content: 'inline*',
+  group: 'block',
+  defining: true,
+  parseDOM: [
+    { tag: 'h1', attrs: { level: 1 } },
+    { tag: 'h2', attrs: { level: 2 } },
+    { tag: 'h3', attrs: { level: 3 } },
+    { tag: 'h4', attrs: { level: 4 } },
+    { tag: 'h5', attrs: { level: 5 } },
+    { tag: 'h6', attrs: { level: 6 } },
+  ],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  toDOM(node: any) {
+    return ['h' + node.attrs.level, 0]
+  },
+}
+
+basicNodes.blockquote = {
+  content: 'block+',
+  group: 'block',
+  defining: true,
+  parseDOM: [{ tag: 'blockquote' }],
+  toDOM() {
+    return ['blockquote', 0]
+  },
+}
+
+basicNodes.hard_break = {
+  inline: true,
+  group: 'inline',
+  selectable: false,
+  parseDOM: [{ tag: 'br' }],
+  toDOM() {
+    return ['br']
+  },
+}
+
+// Add list nodes using prosemirror-schema-list
+const nodesWithLists = addListNodes(basicNodes, 'paragraph block*', 'block')
+
+// Create custom schema with enhanced nodes and marks
 const mySchema = new Schema({
-  nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block'),
+  nodes: nodesWithLists,
   marks: basicMarks,
 })
 
@@ -118,6 +185,32 @@ function createInputRules(schema: Schema) {
       }
     )
   )
+
+  // Headings: # ## ### #### ##### ###### -> <h1> <h2> etc.
+  for (let level = 1; level <= 6; level++) {
+    rules.push(
+      textblockTypeInputRule(
+        new RegExp(`^(#{${level}})\\s$`),
+        schema.nodes.heading,
+        { level }
+      )
+    )
+  }
+
+  // Unordered list: * - + -> <ul><li>
+  if (schema.nodes.bullet_list) {
+    rules.push(wrappingInputRule(/^\s*([-*+])\s$/, schema.nodes.bullet_list))
+  }
+
+  // Ordered list: 1. 2. etc. -> <ol><li>
+  if (schema.nodes.ordered_list) {
+    rules.push(wrappingInputRule(/^(\d+)\.\s$/, schema.nodes.ordered_list))
+  }
+
+  // Blockquote: > -> <blockquote>
+  if (schema.nodes.blockquote) {
+    rules.push(wrappingInputRule(/^\s*>\s$/, schema.nodes.blockquote))
+  }
 
   return inputRules({ rules })
 }
