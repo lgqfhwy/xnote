@@ -4,7 +4,20 @@ import { useState } from 'react'
 import { TopBar } from '@/components/layout/TopBar'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { StatusBar } from '@/components/layout/StatusBar'
-import { Editor } from '@/components/Editor'
+import nextDynamic from 'next/dynamic'
+
+// Dynamically import Editor to prevent SSR issues
+const DynamicEditor = nextDynamic(
+  () => import('@/components/Editor').then((mod) => ({ default: mod.Editor })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[200px] items-center justify-center rounded-md border border-gray-200 p-4">
+        <div className="text-gray-500">Loading editor...</div>
+      </div>
+    ),
+  }
+)
 
 // Disable static generation for this page since it uses authentication
 export const dynamic = 'force-dynamic'
@@ -48,7 +61,7 @@ export default function Home() {
               </div>
 
               <div className="flex-1">
-                <Editor
+                <DynamicEditor
                   className="h-full"
                   initialContent="<h1>Start writing your Markdown here...</h1><p>Type some text to see the WYSIWYG editor in action!</p>"
                 />
