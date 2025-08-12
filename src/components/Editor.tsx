@@ -55,20 +55,19 @@ export function Editor({
       if (typeof DocumentFragment !== 'undefined')
         targets.push(DocumentFragment.prototype)
       // ShadowRoot extends DocumentFragment; cover it just in case
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const ShadowRootCtor: any =
-        (typeof window !== 'undefined' && (window as any).ShadowRoot) ||
+      const ShadowRootCtor: typeof ShadowRoot | undefined =
+        (typeof window !== 'undefined' &&
+          (window as { ShadowRoot?: typeof ShadowRoot }).ShadowRoot) ||
         undefined
       if (ShadowRootCtor && ShadowRootCtor.prototype)
         targets.push(ShadowRootCtor.prototype)
 
       targets.forEach((proto) => {
         if (proto && typeof proto.append !== 'function') {
-          // eslint-disable-next-line no-extend-native
           proto.append = appendShim
         }
       })
-    } catch (_e) {
+    } catch {
       // ignore if prototypes are sealed or in non-standard env
     }
 
