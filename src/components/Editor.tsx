@@ -11,51 +11,60 @@ import { inputRules, InputRule } from 'prosemirror-inputrules'
 import { keymap } from 'prosemirror-keymap'
 import { toggleMark } from 'prosemirror-commands'
 
+// Create basic marks object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const basicMarks: any = {
+  // Override strong mark with better DOM specification
+  strong: {
+    parseDOM: [
+      { tag: 'strong' },
+      {
+        tag: 'b',
+        getAttrs: (node: HTMLElement) =>
+          node.style.fontWeight !== 'normal' && null,
+      },
+      {
+        style: 'font-weight',
+        getAttrs: (value: string) =>
+          /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
+      },
+    ],
+    toDOM() {
+      return ['strong', 0]
+    },
+  },
+  // Override em mark
+  em: {
+    parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
+    toDOM() {
+      return ['em', 0]
+    },
+  },
+  // Add strikethrough mark
+  strikethrough: {
+    parseDOM: [
+      { tag: 's' },
+      { tag: 'del' },
+      { style: 'text-decoration=line-through' },
+    ],
+    toDOM() {
+      return ['s', 0]
+    },
+  },
+}
+
+// Add existing marks if available
+if (schema.spec.marks.get && schema.spec.marks.get('link')) {
+  basicMarks.link = schema.spec.marks.get('link')
+}
+if (schema.spec.marks.get && schema.spec.marks.get('code')) {
+  basicMarks.code = schema.spec.marks.get('code')
+}
+
 // Create custom schema with enhanced marks
 const mySchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block'),
-  marks: {
-    // Use existing marks but override specific ones
-    link: schema.spec.marks.get('link')!,
-    code: schema.spec.marks.get('code')!,
-    // Override strong mark with better DOM specification
-    strong: {
-      parseDOM: [
-        { tag: 'strong' },
-        {
-          tag: 'b',
-          getAttrs: (node: HTMLElement) =>
-            node.style.fontWeight !== 'normal' && null,
-        },
-        {
-          style: 'font-weight',
-          getAttrs: (value: string) =>
-            /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
-        },
-      ],
-      toDOM() {
-        return ['strong', 0]
-      },
-    },
-    // Override em mark
-    em: {
-      parseDOM: [{ tag: 'i' }, { tag: 'em' }, { style: 'font-style=italic' }],
-      toDOM() {
-        return ['em', 0]
-      },
-    },
-    // Add strikethrough mark
-    strikethrough: {
-      parseDOM: [
-        { tag: 's' },
-        { tag: 'del' },
-        { style: 'text-decoration=line-through' },
-      ],
-      toDOM() {
-        return ['s', 0]
-      },
-    },
-  },
+  marks: basicMarks,
 })
 
 // Input rules for markdown syntax
