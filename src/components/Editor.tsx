@@ -20,6 +20,16 @@ export function Editor({
   const viewRef = useRef<any>(null)
 
   useEffect(() => {
+    // Polyfill for Element.prototype.append for compatibility
+    if (typeof window !== 'undefined' && !Element.prototype.append) {
+      Element.prototype.append = function (...args) {
+        for (const arg of args) {
+          this.appendChild(
+            arg instanceof Node ? arg : document.createTextNode(String(arg))
+          )
+        }
+      }
+    }
     if (!editorRef.current) return
 
     // Ensure we're in a proper browser environment with full DOM support
